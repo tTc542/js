@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Bidirectional binding</title>
+</head>
+<body>
+<div id="app">
+    <h2 v-bind="msg"></h2>
+    <input v-model="msg">
+</div>
+</body>
+<script type="text/javascript">
+    "use strict";
+
+    function Bid(opt) {
+        this.__init__(opt);
+    }
+
+    Bid.prototype.__init__ = function (opt) {
+        this.el = document.querySelector(opt.el);
+        this.data = opt.data;
+        this.binding = {};
+
+        this.__parse__(this.data);
+        this.__compile__(this.el);
+    };
+
+    Bid.prototype.__parse__ = function (obj) {
+        for (var k in obj) {
+            if (obj.hasOwnProperty(k)) {
+                this.binding[k] = {
+                    _model_: []
+                };
+                this.__convert__(k, obj[k]);
+            }
+        }
+    };
+
+    Bid.prototype.__convert__ = function (k, v) {
+        var _binding = this.binding;
+        Object.defineProperty(this.data, k, {
+            enumerable: true,
+            configurable: true,
+            get: function () {
+                return v
+            },
+            set: function (_v) {
+                if (v !== _v) {
+                    v = _v;
+                    _binding[k]._model_.forEach(function (t) {
+                        t.__update__();
+                    });
+                }
+            }
+        });
+    };
+
+    Bid.prototype.__compile__ = function (el) {
+        var attrVal,
+            _this = this,
+            nodes = el.children;
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            if (node.children.length) {
+                this.__compile__(node);
+            }
+            if (node.hasAttribute('v-bind')) {
+                attrVal = node.getAttribute('v-bind');
+                this.binding[attrVal]._model_.push(new Model(node, this, attrVal, 'innerHTML'));
+            }
+            if (node.hasAttribute('v-model') && node.tagName === "INPUT") {
+                attrVal = node.getAttribute('v-model');
+                node.addEventListener('input', (function () {
+                    _this.binding[attrVal]._model_.push(new Model(node, _this, attrVal, 'value'));
+                    return function () {
+                        _this.data[attrVal] = node.value;
+                    }
+                })());
+            }
+        }
+    };
+
+    function Model(ele, opt, val, attr) {
+        this.ele = ele;
+        this.opt = opt;
+        this.val = val;
+        this.attr = attr;
+
+        this.__update__();
+    }
+
+    Model.prototype.__update__ = function () {
+        this.ele[this.attr] = this.opt.data[this.val];
+    };
+
+</script>
+<script type="text/javascript">
+    new Bid({
+        el: '#app',
+        data: {
+            'msg': 'hello'
+        }
+    });
+</script>
+</html>
